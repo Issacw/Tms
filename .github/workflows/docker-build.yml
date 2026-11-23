@@ -2,12 +2,14 @@ name: Build and Push Images Based on Version
 
 # 在这里定义统一版本号
 env:
-  VERSION: "1.0.1"
+  VERSION: "1.0.2"
 
 on:
   push:
     branches:
       - main
+  # 手动触发:Actions 页面出现 "Run workflow" 按钮,排障/重跑构建用
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -74,7 +76,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.21'
+          # 跟 go-gost/go.mod 的 go 指令对齐(1.23);写死旧版本会导致 go build 失败
+          go-version-file: go-gost/go.mod
 
       - name: Cache Go modules
         uses: actions/cache@v3
@@ -154,11 +157,11 @@ jobs:
       - name: Build and push Vite Docker images
         run: |
           VERSION="${{ needs.check-version.outputs.version }}"
-          TAGS="-t ghcr.io/${{ github.repository_owner }}/vite-frontend:latest"
+          TAGS="-t ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/vite-frontend:latest"
           # 版本号镜像只在该版本【首次发布】时打,否则同一个 1.0.x 会被后来的提交覆盖、
           # 版本号就失去意义了。:latest 每次都更新,安装脚本用的就是它。
           if [ "${{ needs.check-version.outputs.should_build }}" = "true" ]; then
-            TAGS="$TAGS -t ghcr.io/${{ github.repository_owner }}/vite-frontend:${VERSION}"
+            TAGS="$TAGS -t ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/vite-frontend:${VERSION}"
           fi
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
@@ -204,10 +207,10 @@ jobs:
       - name: Build and push Java Docker images
         run: |
           VERSION="${{ needs.check-version.outputs.version }}"
-          TAGS="-t ghcr.io/${{ github.repository_owner }}/springboot-backend:latest"
+          TAGS="-t ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/springboot-backend:latest"
           # 版本号镜像只在该版本首次发布时打(同上)
           if [ "${{ needs.check-version.outputs.should_build }}" = "true" ]; then
-            TAGS="$TAGS -t ghcr.io/${{ github.repository_owner }}/springboot-backend:${VERSION}"
+            TAGS="$TAGS -t ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/springboot-backend:${VERSION}"
           fi
           # 注入构建标识:面板拿它跟 GitHub 上 main 的最新 commit 比,判断有没有新版本
           docker buildx build \
